@@ -104,6 +104,7 @@ from mininet.log import info, error, debug, output, warn
 from mininet.node import (
     Node,
     Docker,
+    DockerSwarm,
     Host,
     OVSKernelSwitch,
     DefaultController,
@@ -1109,6 +1110,13 @@ class Containernet(Mininet):
         Wrapper for removeHost. Just to be complete.
         """
         return self.removeHost(name, **params)
+
+    def addDockerSwarm(self, name, cls=DockerSwarm, **params):
+        """
+        Wrapper for addHost method that adds a
+        Docker container as a host on swarn mode.
+        """
+        return self.addHost(name, cls=cls, **params)
 
     def addExtSAP(self, sapName, sapIP, dpid=None, **params):
         """

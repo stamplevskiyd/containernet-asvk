@@ -52,20 +52,24 @@ Future enhancements:
 - Create proxy objects for remote nodes (Mininet: Cluster Edition)
 """
 import errno
+import json
 import os
 import pty
 import re
-import signal
 import select
-import docker
-import json
+import signal
 from distutils.version import StrictVersion
 from re import findall
 from subprocess import Popen, PIPE, check_output
 from sys import exit  # pylint: disable=redefined-builtin
 from time import sleep
 
+import docker
+from docker.types.services import ServiceMode
+
+from mininet.link import Link, Intf, TCIntf, OVSIntf
 from mininet.log import info, error, warn, debug
+from mininet.moduledeps import moduleDeps, pathCheck, TUN
 from mininet.util import (
     quietRun,
     errRun,
@@ -82,8 +86,6 @@ from mininet.util import (
     Python3,
     which,
 )
-from mininet.moduledeps import moduleDeps, pathCheck, TUN
-from mininet.link import Link, Intf, TCIntf, OVSIntf
 
 
 # pylint: disable=too-many-arguments
@@ -994,7 +996,7 @@ class Docker(Host):
 
     # Command support via shell process in namespace
     def startShell(self, *args, **kwargs):
-        "Start a shell process for running commands"
+        """Start a shell process for running commands"""
         if self.shell:
             error("%s: shell is already running\n" % self.name)
             return
@@ -1320,6 +1322,42 @@ class Docker(Host):
         except:
             error("Problem reading cgroup info: %r\n" % cmd)
             return -1
+
+
+class DockerSwarm(Docker):
+    def __init__(
+        self, name, dcmd=None, dimage=None, numRep=1, build_params={}, **kwargs
+    ):
+        self.dnameprefix = "mn"
+        self.d_client = docker.from_env()
+        self.dcli = self.d_client.api
+
+        self.d_client.swarm.leave(True)
+        self.d_client.swarm.init(force_new_cluster=True)
+
+        mode = ServiceMode("replicated", replicas=numRep)
+
+        service_name = self.dnameprefix + "_SwarmService_" + name
+
+        skwargs = {
+            "name": service_name,
+            "mode": mode,
+            "hostname": name,
+            # 'open_stdin' : True,
+            "cap_add": ["net_admin"],
+        }
+
+        self.service = self.d_client.services.create(dimage, command=dcmd, **skwargs)
+        sleep(5)
+
+        self.did = self.d_client.containers.list()[0].id
+        self.dcinfo = self.dcli.inspect_container(self.did)
+
+        Host.__init__(self, name, **kwargs)
+
+    def terminate(self):
+        self.service.remove()
+        self.d_client.swarm.leave(True)
 
 
 class CPULimitedHost(Host):
