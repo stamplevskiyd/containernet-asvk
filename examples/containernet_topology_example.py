@@ -15,7 +15,7 @@ from mininet.log import setLogLevel
 from mininet.node import OVSSwitch
 from mininet.topolib import TreeContainerNet
 
-if __name__ == '__main__':
-    setLogLevel( 'info' )
-    network = TreeContainerNet( depth=2, fanout=100, switch=OVSSwitch )
-    network.run( CLI, network )
+if __name__ == "__main__":
+    setLogLevel("info")
+    network = TreeContainerNet(depth=2, fanout=100, switch=OVSSwitch)
+    network.run(CLI, network)
