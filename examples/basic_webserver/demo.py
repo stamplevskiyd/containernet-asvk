@@ -14,7 +14,7 @@ net = Containernet(controller=Controller)
 net.addController("c0")
 
 info("*** Adding server and client container\n")
-server = net.addDocker(
+server = net.addDockerSwarm(
     "server", ip="10.0.0.251", dcmd="python app.py", dimage="test_server:latest"
 )
 client = net.addDocker("client", ip="10.0.0.252", dimage="test_client:latest")
