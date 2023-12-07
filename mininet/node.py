@@ -1328,33 +1328,52 @@ class DockerSwarm(Docker):
     def __init__(
         self, name, dcmd=None, dimage=None, numRep=1, build_params={}, **kwargs
     ):
+        """Creates Docker Swarm as mininet host"""
         info("*** Starting swarm\n")
+        self.dimage = dimage
         self.dnameprefix = "mn"
+        self.dcmd = dcmd if dcmd is not None else "/bin/bash"
+        self.dc = None  # pointer to the dict containing 'Id' and 'Warnings' keys of the container
+        self.dcinfo = None
+        self.did = None  # Id of running container
+
+        # Create docker client
         self.d_client = docker.from_env()
         self.dcli = self.d_client.api
 
+        # Init or re-int swarm
         self.d_client.swarm.leave(True)
         self.d_client.swarm.init(force_new_cluster=True)
 
-        mode = ServiceMode("replicated", replicas=numRep)
-
-        service_name = self.dnameprefix + "_SwarmService_" + name
-
-        skwargs = {
-            "name": service_name,
-            "mode": mode,
-            "hostname": name,
-            # 'open_stdin' : True,
-            "cap_add": ["net_admin"],
-        }
-
-        self.service = self.d_client.services.create(dimage, command=dcmd, **skwargs)
-        sleep(5)
+        # Create service
+        self.service = self.d_client.services.create(
+            image=self.dimage,
+            name=self.dnameprefix + "_SwarmService_" + name,
+            command=self.dcmd,
+            mode=ServiceMode("replicated", replicas=numRep),
+            hostname=name,
+            cap_add=["net_admin"],
+        )
+        for sec in range(60):
+            containers_list = self.d_client.containers.list()
+            if containers_list:
+                break
+            sleep(1)
 
         self.did = self.d_client.containers.list()[0].id
         self.dcinfo = self.dcli.inspect_container(self.did)
 
         Host.__init__(self, name, **kwargs)
+
+    # @property
+    # def did(self) -> str:
+    #     """ID of actual swarm exemplar"""
+    #     info(self.d_client.containers.list())
+    #     return self.d_client.containers.list()[0].id
+    #
+    # @property
+    # def dcinfo(self):
+    #     return self.dcli.inspect_container(self.did)
 
     def terminate(self):
         self.service.remove()
